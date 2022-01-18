@@ -6,6 +6,7 @@ import os
 import pytesseract
 from PIL import Image
 import re
+from datetime import datetime
 
 app = Flask(__name__)
 api = Api(app)
