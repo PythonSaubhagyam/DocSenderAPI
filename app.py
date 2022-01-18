@@ -23,6 +23,7 @@ def ocr_core(filename):
         text =pytesseract.image_to_string(Image.open(filename))  # We'll use Pillow's Image class to open the image and pytesseract to detect the string in the image
         return text
 
+# All functions to find the required text from the images
 def date_finder(text_input):
     dates=[]
     reg1=re.compile(r'(?<!\S)[0-3]{1}[0-9]{1}[/][0-9]{2}[/][0-9]{4}')
@@ -56,7 +57,6 @@ def date_finder(text_input):
         d6= datetime.strptime(i,'%d.%m.%Y').strftime('%Y-%m-%d')
         dates.append(d6)
     return dates
-    
     
 def amount_finder(text_input):
     amounts=[]
@@ -204,7 +204,41 @@ def gst_finder(text_input):
         gst_number.append(i)
     return gst_number
 
+# Get all the required data and validate them 
+def text_to_data(text):
 
+        gst_no = gst_finder(text)
+        if len(gst_no)>0:
+            gst_no=gst_no[0]
+        else:
+            gst_no=None
+        final_amount = amount_finder(text)
+        contact_no = contact_finder(text)
+        if len(contact_no)>0:
+            contact_no=contact_no[0]
+        else:
+            contact_no=None
+        email_id = email_finder(text)
+        if len(email_id)>0:
+            email=email_id[0]
+        else:
+            email=None
+        date=date_finder(text)
+        if len(date)>0:
+            result=date[0]
+        else:
+            result=None
+        invoice_no=invoice_finder(text)
+        if len(invoice_no)>0:
+            invoice_no=invoice_no[0]
+        else:
+            invoice_no=None
+        name=name_finder(text)
+        info_get = []
+        info_get.extend([gst_no,final_amount,contact_no,email,result,invoice_no,name])
+        return info_get
+    
+    
 #  post request to get the image and extract the relevant information
 class OCRInfo(Resource):
     def post(self):
@@ -216,6 +250,10 @@ class OCRInfo(Resource):
         destination = "/".join([target, filename1])
         imagePath[0].save(destination)
         text = ocr_core(filename1)
+        extracted_text = ocr_core("/home/parth/Documents/DocSenderAPI/upload_images/sample1.png")
+        data=text_to_data(text=extracted_text)
+        gst,amount,contact_no,email,date,invoice_no,name=data[0],data[1],data[2],data[3],data[4],data[5],data[6]
+        dic1={"user_id":1,"gst_no":gst,"Total_amnt":amount,"Contact_no":contact_no,"email_id":email,"date":date,"invoice_number":invoice_no,"name":name,"Status":1}
         print(text)
         return jsonify()
     
