@@ -7,6 +7,7 @@ import pytesseract
 from PIL import Image
 import re
 from datetime import datetime
+import json
 
 app = Flask(__name__)
 api = Api(app)
@@ -242,20 +243,19 @@ def text_to_data(text):
 #  post request to get the image and extract the relevant information
 class OCRInfo(Resource):
     def post(self):
-        
-        # int_get = "Hello World"
         imagePath = request.files.getlist("image")
         target = os.path.join(APP_ROOT, 'images')
-        filename1 = imagePath[0].filename
-        destination = "/".join([target, filename1])
+        file_name = imagePath[0].filename
+        destination = "/".join([target, file_name])
         imagePath[0].save(destination)
-        text = ocr_core(filename1)
-        extracted_text = ocr_core("/home/parth/Documents/DocSenderAPI/upload_images/sample1.png")
+        # file= BytesIO(base64.b64decode(filename))
+        extracted_text = ocr_core(destination)
         data=text_to_data(text=extracted_text)
         gst,amount,contact_no,email,date,invoice_no,name=data[0],data[1],data[2],data[3],data[4],data[5],data[6]
         dic1={"user_id":1,"gst_no":gst,"Total_amnt":amount,"Contact_no":contact_no,"email_id":email,"date":date,"invoice_number":invoice_no,"name":name,"Status":1}
-        print(text)
-        return jsonify()
+        json_file=json.dumps(dic1)
+        json_file = json.loads(json_file.replace("\'", '"'))
+        return json_file
     
 api.add_resource(OCRInfo, '/upload')
 api.add_resource(Index, '/')
