@@ -30,9 +30,10 @@ class Index(Resource):
         return jsonify("Docsender api")
 
 # OCR function to extract the information from the image
-def ocr_core(filename):
-        text =pytesseract.image_to_string(Image.open(filename))  # We'll use Pillow's Image class to open the image and pytesseract to detect the string in the image
-        return text
+def ocr_core(*filename):
+    for file in filename:
+            text =pytesseract.image_to_string(Image.open(file))  # We'll use Pillow's Image class to open the image and pytesseract to detect the string in the image
+            yield text
 
 # All functions to find the required text from the images
 def date_finder(text_input):
@@ -248,29 +249,55 @@ def text_to_data(text):
         info_get.extend([gst_no,final_amount,contact_no,email,result,invoice_no,name])
         return info_get
     
-    
+
+users = []   
+
 #  post request to get the image and extract the relevant information
 class OCRInfo(Resource):
     def post(self):
         imagePath = request.files.getlist("image")
         user_id = request.form.get("user_id")
-        target = os.path.join(APP_ROOT, 'images')
-        file_name = imagePath[0].filename
-        # get the file from the request
-        destination = "/".join([target, file_name])
-        imagePath[0].save(destination) # save it 
-        extracted_text = ocr_core(destination)
-        data=text_to_data(text=extracted_text)
-        gst,amount,contact_no,email,date,invoice_no,name=data[0],data[1],data[2],data[3],data[4],data[5],data[6]
-        dic1={"user_id":user_id,"gst_no":gst,"Total_amnt":amount,"Contact_no":contact_no,"email_id":email,"date":date,"invoice_number":invoice_no,"name":name}
-        sql_query = "INSERT INTO doc_sender_user(user_id,filename,gst_no,total_amount,contact_no,email_id,date,invoice_number,doc_name) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)" # Insert values into database
-        values= (user_id,destination,gst,amount,contact_no,email,date,invoice_no,name)
-        cursor.execute(sql_query, values)
-        mydb.commit()  
-        json_file=json.dumps(dic1)
-        json_file = json.loads(json_file.replace("\'", '"'))
-        return json_file,200
-    
+        print(type(imagePath))
+        for i in imagePath:
+            # print(i)
+            target = os.path.join(APP_ROOT, 'images')
+            file_name = imagePath[0].filename
+            destination = "/".join([target, file_name])
+            imagePath[0].save(destination) # save it 
+            extracted_text = ocr_core(destination)
+            data=text_to_data(text=extracted_text)
+            gst,amount,contact_no,email,date,invoice_no,name=data[0],data[1],data[2],data[3],data[4],data[5],data[6]
+            data={"user_id":user_id,"gst_no":gst,"Total_amnt":amount,"Contact_no":contact_no,"email_id":email,"date":date,"invoice_number":invoice_no,"name":name}
+            # sql_query = "INSERT INTO doc_sender_user(user_id,filepath,filename,gst_no,total_amount,contact_no,email_id,date,invoice_number,doc_name) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)" # Insert values into database
+        
+            print(data)
+        # print(type(file_name))
+        # if file_name:
+            # for file in file_name:
+                # get the file from the request
+                # destination = "/".join([target, file_name])
+                # l[0].save(destination) # save it 
+                # extracted_text = ocr_core(destination)
+                # data=text_to_data(text=extracted_text)
+                # gst,amount,contact_no,email,date,invoice_no,name=data[0],data[1],data[2],data[3],data[4],data[5],data[6]
+                # data={"user_id":user_id,"gst_no":gst,"Total_amnt":amount,"Contact_no":contact_no,"email_id":email,"date":date,"invoice_number":invoice_no,"name":name}
+                # sql_query = "INSERT INTO doc_sender_user(user_id,filepath,filename,gst_no,total_amount,contact_no,email_id,date,invoice_number,doc_name) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)" # Insert values into database
+                # values= (user_id,destination,file_name,gst,amount,contact_no,email,date,invoice_no,name)
+                # cursor.execute(sql_query, values)
+                # mydb.commit()  
+                # d = {}
+                # for d1 in data:
+                #     d.update(d1)
+                # json_object=json.dumps(data)
+                # json_object = json.loads(json_object.replace("\'", '"'))
+                # print(type(json_object))
+                # users.append(data)
+
+        return "successfull",200
+        # else:
+        #     return "Image not found",404
+        
+        
 api.add_resource(OCRInfo, '/upload')
 api.add_resource(Index, '/')
 
