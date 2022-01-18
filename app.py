@@ -5,6 +5,8 @@ from flask_restful import reqparse, Api, Resource
 import os 
 import pytesseract
 from PIL import Image
+from mysql.connector.constants import ClientFlag
+import mysql.connector
 import re
 from datetime import datetime
 import json
@@ -14,6 +16,14 @@ api = Api(app)
 
 APP_ROOT = os.path.dirname(os.path.abspath(__file__)) # path of the app 
 
+# database connection
+mydb =  mysql.connector.connect(
+	host = "localhost",
+	database='doc_sender',
+	user = "root",
+	password = ""
+)
+cursor = mydb.cursor()
 # simple get method 
 class Index(Resource):
     def get(self):
@@ -197,7 +207,7 @@ def name_finder(text_input):
         name=None
     return name
 
-def gst_finder(text_input):
+def gst_no_finder(text_input):
     gst_number=[]
     regex=re.compile(r'[0-9A-Z]{10}[0-9A-Za-z]{3}[Z][0-9A-Za-z]{1}')
     gst_no = regex.findall(text_input)
@@ -207,8 +217,7 @@ def gst_finder(text_input):
 
 # Get all the required data and validate them 
 def text_to_data(text):
-
-        gst_no = gst_finder(text)
+        gst_no = gst_no_finder(text)
         if len(gst_no)>0:
             gst_no=gst_no[0]
         else:
@@ -244,18 +253,23 @@ def text_to_data(text):
 class OCRInfo(Resource):
     def post(self):
         imagePath = request.files.getlist("image")
+        user_id = request.form.get("user_id")
         target = os.path.join(APP_ROOT, 'images')
         file_name = imagePath[0].filename
+        # get the file from the request
         destination = "/".join([target, file_name])
-        imagePath[0].save(destination)
-        # file= BytesIO(base64.b64decode(filename))
+        imagePath[0].save(destination) # save it 
         extracted_text = ocr_core(destination)
         data=text_to_data(text=extracted_text)
         gst,amount,contact_no,email,date,invoice_no,name=data[0],data[1],data[2],data[3],data[4],data[5],data[6]
-        dic1={"user_id":1,"gst_no":gst,"Total_amnt":amount,"Contact_no":contact_no,"email_id":email,"date":date,"invoice_number":invoice_no,"name":name,"Status":1}
+        dic1={"user_id":user_id,"gst_no":gst,"Total_amnt":amount,"Contact_no":contact_no,"email_id":email,"date":date,"invoice_number":invoice_no,"name":name}
+        sql_query = "INSERT INTO doc_sender_user(user_id,filename,gst_no,total_amount,contact_no,email_id,date,invoice_number,doc_name) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)" # Insert values into database
+        values= (user_id,destination,gst,amount,contact_no,email,date,invoice_no,name)
+        cursor.execute(sql_query, values)
+        mydb.commit()  
         json_file=json.dumps(dic1)
         json_file = json.loads(json_file.replace("\'", '"'))
-        return json_file
+        return json_file,200
     
 api.add_resource(OCRInfo, '/upload')
 api.add_resource(Index, '/')
