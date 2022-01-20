@@ -1,17 +1,37 @@
 from codecs import IncrementalDecoder
 import imp
 from flask import Flask, request, jsonify
-from flask_restful import reqparse, Api, Resource
+from flask_restful import reqparse, Api, Resource,abort
 import os 
 import pytesseract
 from PIL import Image
+from mysql.connector.constants import ClientFlag
+import mysql.connector
 import re
 from datetime import datetime
+import json
 
 app = Flask(__name__)
 api = Api(app)
 
 APP_ROOT = os.path.dirname(os.path.abspath(__file__)) # path of the app 
+
+# database connection
+
+# mydb = mysql.connector.connect(
+# 	host = "184.168.96.176",
+# 	user="doc_admin",
+#     port=3306,
+# 	password="Admin1234!#$",
+# 	database="docsender_db"
+# 	)
+mydb =  mysql.connector.connect(
+	host = "localhost",
+	database='doc_sender',
+	user = "root",
+	password = ""
+)
+cursor = mydb.cursor()
 
 # simple get method 
 class Index(Resource):
@@ -20,9 +40,10 @@ class Index(Resource):
 
 # OCR function to extract the information from the image
 def ocr_core(filename):
-        text =pytesseract.image_to_string(Image.open(filename))  # We'll use Pillow's Image class to open the image and pytesseract to detect the string in the image
-        return text
+    text =pytesseract.image_to_string(Image.open(filename)) # We'll use Pillow's Image class to open the image and pytesseract to detect the string in the image
+    return text
 
+# All functions to find the required text from the images
 def date_finder(text_input):
     dates=[]
     reg1=re.compile(r'(?<!\S)[0-3]{1}[0-9]{1}[/][0-9]{2}[/][0-9]{4}')
@@ -56,7 +77,6 @@ def date_finder(text_input):
         d6= datetime.strptime(i,'%d.%m.%Y').strftime('%Y-%m-%d')
         dates.append(d6)
     return dates
-    
     
 def amount_finder(text_input):
     amounts=[]
@@ -196,7 +216,7 @@ def name_finder(text_input):
         name=None
     return name
 
-def gst_finder(text_input):
+def gst_no_finder(text_input):
     gst_number=[]
     regex=re.compile(r'[0-9A-Z]{10}[0-9A-Za-z]{3}[Z][0-9A-Za-z]{1}')
     gst_no = regex.findall(text_input)
@@ -204,21 +224,65 @@ def gst_finder(text_input):
         gst_number.append(i)
     return gst_number
 
+# Get all the required data and validate them 
+def text_to_data(text):
+        gst_no = gst_no_finder(text)
+        if len(gst_no)>0:
+            gst_no=gst_no[0]
+        else:
+            gst_no=None
+        final_amount = amount_finder(text)
+        contact_no = contact_finder(text)
+        if len(contact_no)>0:
+            contact_no=contact_no[0]
+        else:
+            contact_no=None
+        email_id = email_finder(text)
+        if len(email_id)>0:
+            email=email_id[0]
+        else:
+            email=None
+        date=date_finder(text)
+        if len(date)>0:
+            result=date[0]
+        else:
+            result=None
+        invoice_no=invoice_finder(text)
+        if len(invoice_no)>0:
+            invoice_no=invoice_no[0]
+        else:
+            invoice_no=None
+        name=name_finder(text)
+        info_get = []
+        info_get.extend([gst_no,final_amount,contact_no,email,result,invoice_no,name])
+        return info_get
+      
 
 #  post request to get the image and extract the relevant information
 class OCRInfo(Resource):
     def post(self):
-        
-        # int_get = "Hello World"
         imagePath = request.files.getlist("image")
-        target = os.path.join(APP_ROOT, 'images')
-        filename1 = imagePath[0].filename
-        destination = "/".join([target, filename1])
-        imagePath[0].save(destination)
-        text = ocr_core(filename1)
-        print(text)
-        return jsonify()
-    
+        user_id = request.form.get("user_id")
+        user_list = []
+        for file in imagePath:
+            target = os.path.join(APP_ROOT, 'images')
+            file_name = file.filename
+            destination = "/".join([target, file_name])
+            file.save(destination)
+            extracted_text = ocr_core(destination)
+            data=text_to_data(text=extracted_text)
+            gst,amount,contact_no,email,date,invoice_no,name=data[0],data[1],data[2],data[3],data[4],data[5],data[6]
+            data={"user_id":user_id,"gst_no":gst,"Total_amnt":amount,"Contact_no":contact_no,"email_id":email,"date":date,"invoice_number":invoice_no,"name":name}
+            user_list.append(data)
+            sql_query = "INSERT INTO doc_sender_user(user_id,filepath,filename,gst_no,total_amount,contact_no,email_id,date,invoice_number,doc_name) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)" # Insert values into database
+            values= (user_id,destination,file_name,gst,amount,contact_no,email,date,invoice_no,name)
+            cursor.execute(sql_query, values)
+            mydb.commit()
+            # json_object=json.dumps(data)
+            # json_object = json.loads(json_object.replace("\'", '"'))
+        
+        return user_list,200
+        
 api.add_resource(OCRInfo, '/upload')
 api.add_resource(Index, '/')
 
