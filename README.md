@@ -1,3 +1,3 @@
 # DocSenderAPI
 
-Extract required infomation from the Image ( invoices )
+OCR for required infomation from the Image ( invoices )
