@@ -1,18 +1,4 @@
-# from traceback import print_tb
-# import pytesseract
-# import os
-# from PIL import Image
-# path ="/home/parth/Documents/DocSenderAPI/images"
-# def ocr_core():
-#     for imageName in os.listdir(path):
-#         inputPath = os.path.join(path, imageName)
-#         img = Image.open(inputPath)
-#         text =pytesseract.image_to_string(img)
-#         print(text)
-#         # print(text)# We'll use Pillow's Image class to open the image and pytesseract to detect the string in the image
-#     # return text
-# ocr_core()
-# from mysql.connector.constants import ClientFlag
+
 import mysql.connector
 
 # mydb =  mysql.connector.connect(
