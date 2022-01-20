@@ -264,25 +264,28 @@ class OCRInfo(Resource):
         imagePath = request.files.getlist("image")
         user_id = request.form.get("user_id")
         user_list = []
-        for file in imagePath:
-            target = os.path.join(APP_ROOT, 'images')
-            file_name = file.filename
-            destination = "/".join([target, file_name])
-            file.save(destination)
-            extracted_text = ocr_core(destination)
-            data=text_to_data(text=extracted_text)
-            gst,amount,contact_no,email,date,invoice_no,name=data[0],data[1],data[2],data[3],data[4],data[5],data[6]
-            data={"user_id":user_id,"gst_no":gst,"Total_amnt":amount,"Contact_no":contact_no,"email_id":email,"date":date,"invoice_number":invoice_no,"name":name}
-            user_list.append(data)
-            sql_query = "INSERT INTO doc_sender_user(user_id,filepath,filename,gst_no,total_amount,contact_no,email_id,date,invoice_number,doc_name) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)" # Insert values into database
-            values= (user_id,destination,file_name,gst,amount,contact_no,email,date,invoice_no,name)
-            cursor.execute(sql_query, values)
-            mydb.commit()
-            # json_object=json.dumps(data)
-            # json_object = json.loads(json_object.replace("\'", '"'))
-        
-        return user_list,200
-        
+        try:
+            for file in imagePath:
+                target = os.path.join(APP_ROOT, 'images')
+                file_name = file.filename
+                destination = "/".join([target, file_name])
+                file.save(destination)
+                extracted_text = ocr_core(destination)
+                data=text_to_data(text=extracted_text)
+                gst,amount,contact_no,email,date,invoice_no,name=data[0],data[1],data[2],data[3],data[4],data[5],data[6]
+                data={"user_id":user_id,"gst_no":gst,"Total_amnt":amount,"Contact_no":contact_no,"email_id":email,"date":date,"invoice_number":invoice_no,"name":name}
+                user_list.append(data)
+                sql_query = "INSERT INTO doc_sender_user(user_id,filepath,filename,gst_no,total_amount,contact_no,email_id,date,invoice_number,doc_name) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)" # Insert values into database
+                values= (user_id,destination,file_name,gst,amount,contact_no,email,date,invoice_no,name)
+                cursor.execute(sql_query, values)
+                mydb.commit()
+                # json_object=json.dumps(data)
+                # json_object = json.loads(json_object.replace("\'", '"'))
+            
+            return user_list,200
+        except:
+            return "Image not found",401            
+                
 api.add_resource(OCRInfo, '/upload')
 api.add_resource(Index, '/')
 
